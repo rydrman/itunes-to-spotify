@@ -44,7 +44,12 @@ func (c *console) Log(msg string) {
     Refresh()
 }
 
+func (c *console) Warning(msg string) {
+    msg = fmt.Sprintf("[WARNING: %s](fg-yellow)", msg)
+    c.Log(msg)
+}
+
 func (c *console) Error(msg string) {
-    msg = fmt.Sprintf("[%s](fg-red)", msg)
+    msg = fmt.Sprintf("[ERROR: %s](fg-red)", msg)
     c.Log(msg)
 }
