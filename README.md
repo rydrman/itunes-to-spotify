@@ -1,7 +1,7 @@
-# Spotr
+# iTunes to Spotify
 
-A spotify console client build in go using the spotify webAPI
+A console utility for exporint gitunes libraries into spotify
 
 # License
 
-Spotr is licensed under the [MIT License](LICENSE)
+This code is licensed under the [MIT License](LICENSE)
