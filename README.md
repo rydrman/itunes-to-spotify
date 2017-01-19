@@ -1,6 +1,7 @@
 # iTunes to Spotify
 
-A console utility for exporint gitunes libraries into spotify
+A console utility for exporting itunes libraries into spotify.
+Proudly written in Go.
 
 # License
 
