@@ -3,7 +3,7 @@ package main
 import (
     "fmt"
 
-    "github.com/gizak/termui"
+    "github.com/rydrman/termui"
 )
 
 type command struct {
@@ -12,14 +12,16 @@ type command struct {
     prompt   string
     value    string
     callback func(string, error)
+
+    Password bool
 }
 
 // Command is a singleton instance class for managing
 // the Spotr command input
-var Command = newCommand()
+var Command *command
 
 // newCommand is not exported because we are forcing a singleton
-func newCommand() *command {
+func initCommand() error {
 
     c := &command{
         prompt:  ">",
@@ -32,7 +34,15 @@ func newCommand() *command {
     cmd.BorderFg = termui.ColorWhite
 
     c.element = cmd
-    return c
+    Command = c
+
+    return nil
+
+}
+
+// start is run one at the beginning of the program
+// after the ui is initialized
+func (c *command) start() {
 
 }
 
@@ -88,7 +98,14 @@ func (c *command) Paint() {
         promptColor = "fg-white"
     }
 
-    c.element.Text = fmt.Sprintf("[%s](%s)%s", c.prompt, promptColor, c.value)
+    valueRunes := []rune(c.value)
+    if c.Password == true {
+        for i := range valueRunes {
+            valueRunes[i] = '•'
+        }
+    }
+
+    c.element.Text = fmt.Sprintf("[%s](%s)%s", c.prompt, promptColor, string(valueRunes))
     Refresh()
 }
 
@@ -119,6 +136,12 @@ func (c *command) HandleKeyboard(e termui.EvtKbd) {
             RunCommand(c.value)
         }
         c.Clear()
+
+    case ":":
+        if len(c.value) == 0 {
+            return
+        }
+        fallthrough
 
     default:
         c.value += e.KeyStr

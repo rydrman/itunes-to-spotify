@@ -1,18 +1,21 @@
 
-REPO?=github.com/rydrman/spotr
+REPO?=github.com/rydrman/itunes-to-spotify
 
 ldflags=\
-	-X $(REPO).clientID=$(SPOTIFY_CLIENT_ID) \
-	-X $(REPO).clientSecret=$(SPOTIFY_CLIENT_SECRET)
+	-X main.clientID=$(SPOTIFY_CLIENT_ID) \
+	-X main.clientSecret=$(SPOTIFY_CLIENT_SECRET)
 
 build:
-	go build -ldflags "$(ldflags)"
+	go build -a -x -ldflags "$(ldflags)"
 
-install: build
-	go install
+install:
+	go install -ldflags "$(ldflags)"
 
-run: build install
-	spotr
+re-install:
+	go install -x -ldflags "$(ldflags)"
+
+run: install
+	itunes-to-spotify
 
 
 

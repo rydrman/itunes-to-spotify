@@ -1,23 +1,22 @@
 package main
 
-import "github.com/gizak/termui"
+import "github.com/rydrman/termui"
 
-func launchUI() error {
+var initialized = false
+
+func initUI() error {
 
     err := termui.Init()
     if err != nil {
         return err
     }
-    defer termui.Close()
 
     err = buildUI()
     if err != nil {
         return err
     }
 
-    Refresh()
-
-    termui.Loop()
+    initialized = true
 
     return nil
 
@@ -40,6 +39,11 @@ func buildUI() error {
 
 // Refresh updates the ui, and should be used whenever something changes
 func Refresh() {
+
+    if !initialized {
+        return
+    }
     termui.Body.Align()
     termui.Render(termui.Body)
+
 }
