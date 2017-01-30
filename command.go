@@ -1,7 +1,10 @@
 package main
 
 import (
+    "bufio"
     "fmt"
+    "os"
+    "path"
 
     "github.com/rydrman/termui"
 )
@@ -12,6 +15,9 @@ type command struct {
     prompt   string
     value    string
     callback func(string, error)
+
+    history         []string
+    historyLocation int
 
     Password bool
 }
@@ -24,9 +30,10 @@ var Command *command
 func initCommand() error {
 
     c := &command{
-        prompt:  ">",
-        focused: true,
-        value:   "",
+        prompt:          ">",
+        focused:         true,
+        value:           "",
+        historyLocation: 0,
     }
 
     cmd := termui.NewPar("")
@@ -36,6 +43,8 @@ func initCommand() error {
     c.element = cmd
     Command = c
 
+    Command.LoadHistory()
+
     return nil
 
 }
@@ -43,7 +52,6 @@ func initCommand() error {
 // start is run one at the beginning of the program
 // after the ui is initialized
 func (c *command) start() {
-
 }
 
 // Element returns the termui element for this command box
@@ -56,7 +64,9 @@ func (c command) Element() termui.GridBufferer {
 func (c *command) Clear() {
 
     c.value = ""
+    c.historyLocation = len(c.history)
     c.Paint()
+
 }
 
 // GetInput registers a message for the user to respond to
@@ -90,6 +100,54 @@ func (c *command) Blur() {
     c.Paint()
 }
 
+func (c *command) LoadHistory() error {
+
+    tempDir := os.TempDir()
+    historyFile := path.Join(tempDir, ".itspHistory")
+
+    if _, err := os.Stat(historyFile); os.IsNotExist(err) {
+        Console.Debug("no history file to load")
+        return nil
+    }
+
+    file, err := os.Open(historyFile)
+    if nil != err {
+        return err
+    }
+    defer file.Close()
+
+    scanner := bufio.NewScanner(file)
+    scanner.Split(bufio.ScanLines)
+    for scanner.Scan() {
+        c.history = append(c.history, scanner.Text())
+    }
+
+    Console.Debugf("loaded %d history commands", len(c.history))
+
+    c.Clear()
+
+    return nil
+
+}
+
+func (c *command) SaveHistory() {
+
+    tempDir := os.TempDir()
+    historyFile := path.Join(tempDir, ".itspHistory")
+
+    file, err := os.Create(historyFile)
+    if nil != err {
+        Console.Error(err.Error())
+        return
+    }
+    defer file.Close()
+
+    for _, cmd := range c.history {
+        file.WriteString(fmt.Sprintf("%s\n", cmd))
+    }
+
+}
+
 // Paint re-paints the command ui box with any new changes
 func (c *command) Paint() {
 
@@ -107,6 +165,30 @@ func (c *command) Paint() {
 
     c.element.Text = fmt.Sprintf("[%s](%s)%s", c.prompt, promptColor, string(valueRunes))
     Refresh()
+}
+
+func (c *command) ShowHistory(record int) {
+
+    if record < 0 {
+
+        return
+
+    }
+
+    if record >= len(c.history) {
+
+        record = len(c.history)
+        c.value = ""
+
+    } else {
+
+        c.value = c.history[record]
+
+    }
+
+    c.historyLocation = record
+    c.Paint()
+
 }
 
 // HandleKeyboard is used to have this command box handle the
@@ -133,9 +215,22 @@ func (c *command) HandleKeyboard(e termui.EvtKbd) {
             c.callback(c.value, nil)
             c.RemovePrompt()
         } else {
+
+            if c.value == "" {
+                return
+            }
+
             RunCommand(c.value)
+            c.history = append(c.history, c.value)
+
         }
         c.Clear()
+
+    case "<up>":
+        c.ShowHistory(c.historyLocation - 1)
+
+    case "<down>":
+        c.ShowHistory(c.historyLocation + 1)
 
     case ":":
         if len(c.value) == 0 {

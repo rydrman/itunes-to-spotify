@@ -22,8 +22,8 @@ var scopes = []string{
     spotify.ScopePlaylistModifyPublic,
     spotify.ScopePlaylistModifyPrivate,
     spotify.ScopePlaylistReadCollaborative,
-    spotify.ScopeUserFollowModify,
-    spotify.ScopeUserFollowRead,
+    //spotify.ScopeUserFollowModify,
+    //spotify.ScopeUserFollowRead,
     spotify.ScopeUserLibraryModify,
     spotify.ScopeUserLibraryRead,
     spotify.ScopeUserReadPrivate,
@@ -83,6 +83,11 @@ func (s *session) Client() *spotify.Client {
     return s.client
 }
 
+// IsAuthenticated returns true if this session is logged in successfully
+func (s *session) IsAuthenticated() bool {
+    return (s.client != nil)
+}
+
 func (s *session) authCallback(w http.ResponseWriter, r *http.Request) {
 
     token, err := s.auth.Token(s.id, r)
@@ -101,6 +106,7 @@ func (s *session) authCallback(w http.ResponseWriter, r *http.Request) {
         name = usr.DisplayName
     }
     Console.Logf("Login Successful! Welcome, %s", name)
+    Console.Log("you can now use the 'import' command to import from itunes")
 
     // send a self closing page
     w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -152,9 +158,15 @@ func (s *session) Authenticate() error {
     case "windows":
         exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
     default:
-        Console.Log("please visit thie URL to login: " + url)
+        Console.Log("please visit this URL to login: " + url)
     }
 
     return nil
 
+}
+
+func (s *session) Logout() error {
+    s.client = nil
+    Console.Log("Successfully logged out of Spotify.")
+    return nil
 }

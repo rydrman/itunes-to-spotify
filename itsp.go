@@ -69,6 +69,7 @@ func main() {
 
     }
 
+    Command.SaveHistory()
     os.Exit(0)
 
 }
