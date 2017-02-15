@@ -17,5 +17,5 @@ re-install:
 run: install
 	itunes-to-spotify
 
-
-
+test: install
+	go test -v

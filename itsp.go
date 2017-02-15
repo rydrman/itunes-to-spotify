@@ -1,81 +1,92 @@
 package main
 
 import (
-    "fmt"
-    "os"
-    "time"
+	"os"
+	"path/filepath"
+	"time"
 
-    "github.com/rydrman/termui"
+	itunes "github.com/rydrman/go-itunes-library"
 )
-
-var quit = false
 
 func main() {
 
-    termui.Handle("/sys", func(event termui.Event) {
-        switch e := event.Data.(type) {
-        case termui.EvtKbd:
-            Command.HandleKeyboard(e)
-        }
-    })
+	program := &SimpleCommandProgram{}
+	var err error
 
-    err := initConsole()
-    if nil != err {
-        fmt.Print(err.Error())
-        quit = true
-    }
-    err = initCommand()
-    if nil != err {
-        fmt.Print(err.Error())
-        quit = true
-    }
-    err = initSession()
-    if nil != err {
-        fmt.Print(err.Error())
-        quit = true
-    }
+	program.Log("Welcome to the iTunes to Spotify utility!")
+	program.Log("at any time you can exit by using ctrl+c")
 
-    err = initUI()
-    if nil != err {
-        fmt.Print(err.Error())
-        quit = true
-    }
-    defer termui.Close()
+	if "" == clientID || "" == clientSecret {
+		program.Error("app identifiers not found (clientID, clientSecret)")
+	}
 
-    Console.start()
-    Command.start()
-    Session.start()
+	err = initSession()
+	if nil != err {
+		program.Error(err.Error())
+		os.Exit(1)
+	}
+	Session.start()
 
-    Console.Log("Welcome to the iTunes to Spotify utility!")
-    Console.Log("use 'login' or 'help' to get started :)")
-    if "" == clientID || "" == clientSecret {
-        Console.Error("app identifiers not found (clientID, clientSecret)")
-    }
+	////////////
+	// authenticate with spotify
+	////////////
 
-    // enter a forever update loop for the application
-    for quit == false {
+	program.Log("you will need to login to get started")
+	program.Log("to open the login page, press enter:")
 
-        start := time.Now().UnixNano()
-        end := start
+	_ = program.CaptureInput()
 
-        termui.SendCustomEvt("/update", start)
+	err = Session.Authenticate()
+	if nil != err {
+		program.Error(err.Error())
+	}
 
-        for time.Duration(end-start) < 160*time.Millisecond {
-            termui.HandleEvents()
-            end = time.Now().UnixNano()
-        }
+	program.Log("waiting for login response...")
+	for Session.IsAuthenticated() == false {
+		time.Sleep(time.Millisecond * 250)
+	}
 
-        Refresh()
+	name := "<UNKNOWN>"
+	usr, err := Session.Client().CurrentUser()
+	if nil != err {
+		program.Warningf("error getting user information: %s", err)
+	} else {
+		name = usr.DisplayName
+	}
 
-    }
+	program.Logf("Login Successful! Welcome, %s", name)
+	program.Log("")
 
-    Command.SaveHistory()
-    os.Exit(0)
+	////////////
+	// read the itunes library
+	////////////
+	var lib *itunes.Library
+	for {
+		fileName := program.AskStringDefault(
+			"enter path to itunes library XML file", "")
+		fileName = filepath.Clean(fileName)
+		lib, err = itunes.ParseFile(fileName)
+		if nil == err {
+			break
+		}
+		program.Error(err.Error())
+	}
 
-}
+	program.Log("Library file read successfully!")
+	program.Log(lib.String())
 
-// Quit stops all processes and exits Spotr
-func Quit() {
-    quit = true
-    termui.Close()
+	if !Session.IsAuthenticated() {
+		program.Warning("You are not logged Spotify, import cannot continue")
+		os.Exit(1)
+	}
+
+	////////////
+	// hand off to importer
+	////////////
+	importer := NewImporter(program, lib)
+	importer.Run()
+
+	Session.Logout()
+	os.Exit(0)
+
 }

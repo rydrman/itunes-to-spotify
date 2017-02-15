@@ -4,244 +4,235 @@ import (
     "bufio"
     "fmt"
     "os"
-    "path"
+    "strconv"
 
-    "github.com/rydrman/termui"
+    "github.com/fatih/color"
 )
 
-type command struct {
-    element  *termui.Par
-    focused  bool
-    prompt   string
-    value    string
-    callback func(string, error)
+// SimpleCommandProgram manages a simple interactive command
+// program for go processes running in the command line
+type SimpleCommandProgram struct{}
 
-    history         []string
-    historyLocation int
+// ClearInput clears any current input in the stdin buffer
+// so that a new anser can be read
+func (p *SimpleCommandProgram) ClearInput() {
 
-    Password bool
-}
-
-// Command is a singleton instance class for managing
-// the Spotr command input
-var Command *command
-
-// newCommand is not exported because we are forcing a singleton
-func initCommand() error {
-
-    c := &command{
-        prompt:          ">",
-        focused:         true,
-        value:           "",
-        historyLocation: 0,
-    }
-
-    cmd := termui.NewPar("")
-    cmd.Height = 3
-    cmd.BorderFg = termui.ColorWhite
-
-    c.element = cmd
-    Command = c
-
-    Command.LoadHistory()
-
-    return nil
-
-}
-
-// start is run one at the beginning of the program
-// after the ui is initialized
-func (c *command) start() {
-}
-
-// Element returns the termui element for this command box
-func (c command) Element() termui.GridBufferer {
-    c.Paint()
-    return c.element
-}
-
-// Clear clears the current value of the command input
-func (c *command) Clear() {
-
-    c.value = ""
-    c.historyLocation = len(c.history)
-    c.Paint()
-
-}
-
-// GetInput registers a message for the user to respond to
-// and a callback function when complete.
-func (c *command) Prompt(msg string, cb func(string, error)) {
-    c.prompt = msg + ">"
-    c.callback = cb
-    Refresh()
-}
-
-// RemovePrompt removes any current prompt and callback in the command window
-func (c *command) RemovePrompt() {
-    c.prompt = ">"
-    c.callback = nil
-    c.Paint()
-}
-
-// Focus is called when the user is focused on this command window
-func (c *command) Focus() {
-    c.focused = true
-    c.Paint()
-}
-
-// Blur is called when the user navigates away from this command window
-func (c *command) Blur() {
-    c.focused = false
-    if c.callback != nil {
-        c.callback("", fmt.Errorf("user exited the prompt"))
-    }
-    c.RemovePrompt()
-    c.Paint()
-}
-
-func (c *command) LoadHistory() error {
-
-    tempDir := os.TempDir()
-    historyFile := path.Join(tempDir, ".itspHistory")
-
-    if _, err := os.Stat(historyFile); os.IsNotExist(err) {
-        Console.Debug("no history file to load")
-        return nil
-    }
-
-    file, err := os.Open(historyFile)
-    if nil != err {
-        return err
-    }
-    defer file.Close()
-
-    scanner := bufio.NewScanner(file)
-    scanner.Split(bufio.ScanLines)
-    for scanner.Scan() {
-        c.history = append(c.history, scanner.Text())
-    }
-
-    Console.Debugf("loaded %d history commands", len(c.history))
-
-    c.Clear()
-
-    return nil
-
-}
-
-func (c *command) SaveHistory() {
-
-    tempDir := os.TempDir()
-    historyFile := path.Join(tempDir, ".itspHistory")
-
-    file, err := os.Create(historyFile)
-    if nil != err {
-        Console.Error(err.Error())
-        return
-    }
-    defer file.Close()
-
-    for _, cmd := range c.history {
-        file.WriteString(fmt.Sprintf("%s\n", cmd))
+    stats, err := os.Stdin.Stat()
+    for err != nil && stats != nil && stats.Size() > 0 {
+        _ = p.CaptureInput()
+        stats, err = os.Stdin.Stat()
     }
 
 }
 
-// Paint re-paints the command ui box with any new changes
-func (c *command) Paint() {
+// CaptureInput gets the next input string from the user
+func (p *SimpleCommandProgram) CaptureInput() string {
 
-    promptColor := "fg-cyan"
-    if !c.focused {
-        promptColor = "fg-white"
-    }
-
-    valueRunes := []rune(c.value)
-    if c.Password == true {
-        for i := range valueRunes {
-            valueRunes[i] = '•'
-        }
-    }
-
-    c.element.Text = fmt.Sprintf("[%s](%s)%s", c.prompt, promptColor, string(valueRunes))
-    Refresh()
-}
-
-func (c *command) ShowHistory(record int) {
-
-    if record < 0 {
-
-        return
-
-    }
-
-    if record >= len(c.history) {
-
-        record = len(c.history)
-        c.value = ""
-
-    } else {
-
-        c.value = c.history[record]
-
-    }
-
-    c.historyLocation = record
-    c.Paint()
+    reader := bufio.NewReader(os.Stdin)
+    text, _ := reader.ReadString('\n')
+    return text[:len(text)-2]
 
 }
 
-// HandleKeyboard is used to have this command box handle the
-// given keyboard input event from termui
-func (c *command) HandleKeyboard(e termui.EvtKbd) {
+// AskString simply promts the user for a string answer
+func (p *SimpleCommandProgram) AskString(question string) string {
 
-    switch e.KeyStr {
+    p.ClearInput()
+    fmt.Printf("%s:", question)
+    text := p.CaptureInput()
+    return text
 
-    case "<space>":
-        c.value += " "
-        c.Paint()
+}
 
-    case "C-8": //backspace
-        if len(c.value) > 0 {
-            c.value = c.value[:len(c.value)-1]
-            c.Paint()
+// AskStringDefault simply promts the user for a string answer but
+// also provides a default value if they simply hit return
+func (p *SimpleCommandProgram) AskStringDefault(question, def string) string {
+
+    p.ClearInput()
+    fmt.Printf("%s [%s]:", question, def)
+    text := p.CaptureInput()
+    if text == "" {
+        return def
+    }
+    return text
+
+}
+
+// AskYesNo asks the given question as a yes or no option and waits for
+// a valid answer from the user. def is the default answer if the user simply
+// hits the return key
+func (p *SimpleCommandProgram) AskYesNo(question string, def bool) bool {
+
+    p.ClearInput()
+    defStr := "[y/N]"
+    if def == true {
+        defStr = "[Y/n]"
+    }
+
+    for {
+        fmt.Printf("%s %s:", question, defStr)
+        text := p.CaptureInput()
+        switch text {
+        case "":
+            return def
+
+        case "yes":
+            fallthrough
+        case "y":
+            fallthrough
+        case "Yes":
+            fallthrough
+        case "Y":
+            return true
+
+        case "no":
+            fallthrough
+        case "n":
+            fallthrough
+        case "No":
+            fallthrough
+        case "N":
+            return false
+
+        default:
+            fmt.Println("invalid answer")
+
         }
 
-    case "<escape>":
-        Console.Warning("command did not expect to receive escape!")
+    }
 
-    case "<enter>":
-        if c.callback != nil {
-            c.callback(c.value, nil)
-            c.RemovePrompt()
+}
+
+// AskOption gives the user a selection betweek the given
+// options and returns an integer representing their selection
+func (p *SimpleCommandProgram) AskOption(question string, options []string) int {
+
+    p.ClearInput()
+    fmt.Printf("%s:\n", question)
+    for i, option := range options {
+        fmt.Printf("[%d] %s\n", i, option)
+    }
+    fmt.Printf("please select one of the above options:")
+    for {
+        text := p.CaptureInput()
+        if text == "" {
+            continue
+        }
+        sel, err := strconv.Atoi(text)
+        if err != nil || sel < 0 || sel >= len(options) {
+            fmt.Printf("%s is not a valid option, select again:", text)
+            continue
+        }
+        return sel
+    }
+
+}
+
+// AskOptionDefault gives the user a selection betweek the given
+// options and returns an integer representing their selection
+func (p *SimpleCommandProgram) AskOptionDefault(question string, options []string, def int) int {
+
+    p.ClearInput()
+    fmt.Printf("%s:\n", question)
+    for i, option := range options {
+        if i == def {
+            fmt.Printf("[*%d] %s\n", i, option)
         } else {
-
-            if c.value == "" {
-                return
-            }
-
-            RunCommand(c.value)
-            c.history = append(c.history, c.value)
-
+            fmt.Printf("[%d] %s\n", i, option)
         }
-        c.Clear()
-
-    case "<up>":
-        c.ShowHistory(c.historyLocation - 1)
-
-    case "<down>":
-        c.ShowHistory(c.historyLocation + 1)
-
-    case ":":
-        if len(c.value) == 0 {
-            return
+    }
+    for {
+        fmt.Printf("please select one of the above options [%d]:", def)
+        text := p.CaptureInput()
+        if text == "" {
+            return def
         }
-        fallthrough
-
-    default:
-        c.value += e.KeyStr
-        c.Paint()
-
+        sel, err := strconv.Atoi(text)
+        if err != nil || sel < 0 || sel >= len(options) {
+            fmt.Printf("%s is not a valid option, select again:", text)
+            continue
+        }
+        return sel
     }
 
+}
+
+// AskOptionCustom gives the user a selection betweek the given
+// options or creating a custom string value returns an integer and
+// string representing their selection. custom is a string that should
+// fin into the phrase select one option, or enter <custom>
+func (p *SimpleCommandProgram) AskOptionCustom(question string, options []string, custom string) (int, string) {
+
+    p.ClearInput()
+    fmt.Printf("%s:\n", question)
+    cursor := 0
+    cursorLimit := 15
+    for {
+        for cursor < cursorLimit && cursor < len(options) {
+            fmt.Printf("[%d] %s\n", cursor, options[cursor])
+            cursor++
+        }
+        if cursor >= len(options)-1 {
+            fmt.Printf("select one option, or enter %s:", custom)
+        } else {
+            fmt.Printf("select one option, enter %s, or enter for next page:", custom)
+        }
+        text := p.CaptureInput()
+        if text == "" {
+            cursorLimit += 15
+            continue
+        }
+        sel, err := strconv.Atoi(text)
+        if err == nil && (sel < 0 || sel >= len(options)) {
+            fmt.Printf("%s is not a valid option, select again:", text)
+            continue
+        }
+        if err != nil {
+            return -1, text
+        }
+        return sel, options[sel]
+    }
+
+}
+
+// Log is used to log a message to the console
+func (p *SimpleCommandProgram) Log(msg string) {
+    color.White(msg)
+}
+
+// Logf uses fmt.Sprintf to format the given message and vars
+func (p *SimpleCommandProgram) Logf(msg string, vars ...interface{}) {
+    p.Log(fmt.Sprintf(msg, vars...))
+}
+
+// Debug prints a debug message to the program
+func (p *SimpleCommandProgram) Debug(msg string) {
+    msg = fmt.Sprintf("DEBUG: %s", msg)
+    color.Cyan(msg)
+}
+
+// Debugf uses fmt.Sprintf to format the given message and vars
+func (p *SimpleCommandProgram) Debugf(msg string, vars ...interface{}) {
+    p.Debug(fmt.Sprintf(msg, vars...))
+}
+
+// Warning prints a warning to this program
+func (p *SimpleCommandProgram) Warning(msg string) {
+    msg = fmt.Sprintf("WARNING: %s", msg)
+    color.Yellow(msg)
+}
+
+// Warningf uses fmt.Sprintf to format the given message and vars
+func (p *SimpleCommandProgram) Warningf(msg string, vars ...interface{}) {
+    p.Warning(fmt.Sprintf(msg, vars...))
+}
+
+func (p *SimpleCommandProgram) Error(msg string) {
+    msg = fmt.Sprintf("ERROR: %s", msg)
+    color.Red(msg)
+}
+
+// Errorf uses fmt.Sprintf to format the given message and vars
+func (p *SimpleCommandProgram) Errorf(msg string, vars ...interface{}) {
+    p.Error(fmt.Sprintf(msg, vars...))
 }
