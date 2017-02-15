@@ -311,16 +311,18 @@ func (i *Importer) getMappedTrack(itunesTrackID int) *MatchedTrack {
 	i.program.Logf("            \n%04d/%04d: %s\n",
 		i.matchNum, i.matchTotal, ItunesCacheString(goal))
 
-	// TODO special case
-	if strings.ToLower(goal.Artist) == "taylor swift" {
-		return nil
-	}
-
 	// see if it exists in a previous cache
 	cached := i.matchCache.TrackMap.GetMatch(goal)
 	if nil != cached {
 		return i.cacheTrack(cached)
 	}
+
+	// TODO special case
+	if strings.ToLower(goal.Artist) == "taylor swift" {
+		return nil
+	}
+
+	goal = PreprocessTrackArtists(goal)
 
 	// see if the album was already mapped
 	aTracks, ok := i.albumCache[goal.Album]

@@ -56,7 +56,6 @@ var simpleReplacements = map[string][]*re.Regexp{
 		re.MustCompile(`(^|\s+)the(\s+|$)`),
 		re.MustCompile(`\s*\(.*\)`),
 		re.MustCompile(`\s*\[.*\]`),
-		re.MustCompile(`\s*(feat\.?|ft\.?|featuring)\s*.+$`),
 		re.MustCompile(` - (\w+ )?from .*$`),
 		re.MustCompile(` - single version.*$`),
 		re.MustCompile(` - radio edit.*$`),
@@ -71,6 +70,32 @@ var complexReplacements = map[string][]*re.Regexp{
 		re.MustCompile(`:\s+.*$`),
 		re.MustCompile(`["'].*["']\s*`),
 	},
+}
+
+// PreprocessTrackArtists attempts to make itunes track names more friendly to
+// spotify by removing featured artists and adding them to the main aritst list
+func PreprocessTrackArtists(goal *itunes.Track) *itunes.Track {
+
+	newTrack := itunes.Track(*goal)
+
+	featureRe := re.MustCompile(`(feat\.?|ft\.?|featuring)\s([\s\w,&]*)`)
+
+	for groups := featureRe.FindStringSubmatch(newTrack.Name); len(groups) > 0; groups = featureRe.FindStringSubmatch(newTrack.Name) {
+
+		newTrack.Name = strings.Replace(newTrack.Name, groups[0], "", 1)
+		newTrack.Artist += " & " + groups[2]
+
+	}
+
+	for groups := featureRe.FindStringSubmatch(newTrack.Artist); len(groups) > 0; groups = featureRe.FindStringSubmatch(newTrack.Artist) {
+
+		newTrack.Artist = strings.Replace(newTrack.Artist, groups[0], "", 1)
+		newTrack.Artist += " & " + groups[2]
+
+	}
+
+	return &newTrack
+
 }
 
 // TrackCompare intelligently compares the itunes track to the spotify track and
