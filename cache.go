@@ -41,12 +41,11 @@ func InitMatchCache(itunesLibraryPath string) *MatchCache {
 
 	jsonData, err := ioutil.ReadFile(cacheFile)
 	if err != nil {
-		fmt.Printf("error reading cache: %s\n", cache.CacheFile)
-		return cache
+		panic(fmt.Sprintf("error reading cache: %s\n", cache.CacheFile))
 	}
 	err = json.Unmarshal(jsonData, cache)
 	if err != nil {
-		fmt.Printf("error unmarshalling cache: %s\n", cache.CacheFile)
+		panic(fmt.Sprintf("error unmarshalling cache: %s\n", cache.CacheFile))
 	}
 
 	fmt.Printf("cache file found: %d tracks, %d albums\n", len(cache.TrackMap), len(cache.AlbumMap))
@@ -73,21 +72,22 @@ func (mc *MatchCache) SaveCache() error {
 // has enough info to be useful for debugging and as a cache
 // but not runtime
 type CachedTrackMatch struct {
-	ItunesTrack  string
-	SpotifyTrack string
-	SpotifyID    string
-	ItunesID     int
-	Score        float64
+	ItunesTrack        string
+	SpotifyTrack       string
+	SpotifyID          string
+	ItunesID           int
+	ItunesPersistentID string
+	Score              float64
 }
 
 // TrackMap stores simple id mapping data for itunes to spotify mappings
-type TrackMap map[int]CachedTrackMatch
+type TrackMap map[string]*CachedTrackMatch
 
 // GetMatch tried to build a mapped track instance for the given
 // itunes track if it is available in this map
 func (tm *TrackMap) GetMatch(goal *itunes.Track) *MatchedTrack {
 
-	if cached, ok := (*tm)[goal.TrackID]; ok {
+	if cached, ok := (*tm)[goal.PersistentID]; ok {
 
 		mt := &MatchedTrack{
 			itunes: goal,
@@ -124,12 +124,13 @@ func (tm *TrackMap) Store(mt *MatchedTrack) {
 		spotifyID = mt.spotify.ID.String()
 	}
 
-	(*tm)[mt.itunes.TrackID] = CachedTrackMatch{
-		ItunesTrack:  ItunesCacheString(mt.itunes),
-		SpotifyTrack: SpotifyCacheString(mt.spotify),
-		SpotifyID:    spotifyID,
-		ItunesID:     mt.itunes.TrackID,
-		Score:        mt.score,
+	(*tm)[mt.itunes.PersistentID] = &CachedTrackMatch{
+		ItunesTrack:        ItunesCacheString(mt.itunes),
+		SpotifyTrack:       SpotifyCacheString(mt.spotify),
+		SpotifyID:          spotifyID,
+		ItunesID:           mt.itunes.TrackID,
+		ItunesPersistentID: mt.itunes.PersistentID,
+		Score:              mt.score,
 	}
 
 }

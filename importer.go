@@ -89,8 +89,6 @@ func (i *Importer) Run() {
 		for _, track := range i.lib.Tracks {
 
 			if i.shouldSkipTrack(track) {
-				i.program.Logf("            \nskipping:  %s\n",
-					ItunesCacheString(track))
 				i.matchTotal--
 				continue
 			}
@@ -148,8 +146,6 @@ func (i *Importer) Run() {
 	for _, track := range i.lib.Tracks {
 
 		if i.shouldSkipTrack(track) {
-			i.program.Logf("            \nskipping:  %s\n",
-				ItunesCacheString(track))
 			i.matchTotal--
 			continue
 		}
@@ -220,8 +216,6 @@ func (i *Importer) Run() {
 			for _, track := range iList.PlaylistItems {
 
 				if i.shouldSkipTrack(track) {
-					i.program.Logf("            \nskipping:  %s\n",
-						ItunesCacheString(track))
 					i.matchTotal--
 					continue
 				}

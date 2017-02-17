@@ -78,7 +78,7 @@ func PreprocessTrackArtists(goal *itunes.Track) *itunes.Track {
 
 	newTrack := itunes.Track(*goal)
 
-	featureRe := re.MustCompile(`(feat\.?|ft\.?|featuring)\s([\s\w,&]*)`)
+	featureRe := re.MustCompile(`[\s\(\[](feat\.?|ft\.?|featuring)\s([\s\w,&]*)`)
 
 	for groups := featureRe.FindStringSubmatch(newTrack.Name); len(groups) > 0; groups = featureRe.FindStringSubmatch(newTrack.Name) {
 
