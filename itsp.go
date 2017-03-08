@@ -62,8 +62,7 @@ func main() {
 	////////////
 	var lib *itunes.Library
 	for {
-		fileName := program.AskStringDefault(
-			"enter path to itunes library XML file", "")
+		fileName := program.AskStringDefault("enter path to itunes library XML file", "")
 		fileName = filepath.Clean(fileName)
 		lib, err = itunes.ParseFile(fileName)
 		if nil == err {

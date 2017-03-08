@@ -29,7 +29,7 @@ type Importer struct {
 	matchTotal int
 
 	// cache
-	missingLog []string
+	missingLog *MissingLog
 	matchCache *MatchCache
 	trackCache map[int]*MatchedTrack
 	albumCache map[string][]spotify.FullTrack
@@ -54,6 +54,7 @@ func NewImporter(program *SimpleCommandProgram, lib *itunes.Library) *Importer {
 
 		matchTotal: len(lib.Tracks),
 
+		missingLog: InitMissingLog(lib.LibraryFile),
 		matchCache: InitMatchCache(lib.LibraryFile),
 		trackCache: make(map[int]*MatchedTrack),
 		albumCache: make(map[string][]spotify.FullTrack),
@@ -67,6 +68,8 @@ func NewImporter(program *SimpleCommandProgram, lib *itunes.Library) *Importer {
 
 // Run this importer with the current configuration
 func (i *Importer) Run() {
+
+	defer i.missingLog.SaveLog()
 
 	var user *spotify.PrivateUser
 	var err error
@@ -94,6 +97,9 @@ func (i *Importer) Run() {
 			}
 
 			mt := i.getMappedTrack(track.TrackID)
+			if mt == nil {
+				i.missingLog.Log("Spotify Library", track)
+			}
 			if mt != nil && mt.Valid() {
 				chunk = append(chunk, mt.spotify.ID)
 			}
@@ -151,6 +157,9 @@ func (i *Importer) Run() {
 		}
 
 		mt := i.getMappedTrack(track.TrackID)
+		if mt == nil {
+			i.missingLog.Log("iTunes Library", track)
+		}
 		if mt != nil && mt.Valid() {
 			chunk = append(chunk, mt.spotify.ID)
 		}
@@ -191,7 +200,12 @@ func (i *Importer) Run() {
 
 			if iList.Master ||
 				iList.TVShows ||
-				iList.Movies {
+				iList.Movies ||
+				iList.ITunesU ||
+				iList.Audiobooks ||
+				iList.Books ||
+				iList.Folder ||
+				iList.Music {
 				continue
 			}
 
@@ -221,6 +235,9 @@ func (i *Importer) Run() {
 				}
 
 				mt := i.getMappedTrack(track.TrackID)
+				if mt == nil {
+					i.missingLog.Log(iList.Name, track)
+				}
 				if mt != nil && mt.Valid() {
 					chunk = append(chunk, mt.spotify.ID)
 				}
